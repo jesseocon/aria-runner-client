@@ -173,6 +173,73 @@ describe("createRunner", () => {
     assert.equal(calls.length, 2);
   });
 
+  it("keeps the connector config schema", async () => {
+    const schema = {
+      type: "object",
+      properties: { hotel_id: { type: "string", title: "Lighthouse hotel id" } },
+    };
+    install(() =>
+      jsonResponse([
+        {
+          key: "lighthouse",
+          display_name: "Lighthouse",
+          config_schema: schema,
+          auth: { fields: [{ key: "username", title: "Username", secret: false }] },
+        },
+      ]),
+    );
+    const [type] = await runner().connectorTypes();
+    assert.equal(type.key, "lighthouse");
+    assert.deepEqual(type.configSchema, schema);
+    assert.equal(type.settings[0]?.key, "username");
+  });
+
+  it("starts a run and reads it back", async () => {
+    const calls = install((url, init) => {
+      if (init?.method === "POST") {
+        assert.equal(url, "https://runner.example/v1/connections/hgi/runs");
+        assert.deepEqual(JSON.parse(String(init.body)), { params: {} });
+        return jsonResponse({
+          id: "run_1",
+          connection_id: "hgi",
+          connector_key: "lighthouse",
+          status: "queued",
+          error: null,
+          created_at: "2026-10-13T00:00:00Z",
+          started_at: null,
+          finished_at: null,
+        });
+      }
+      if (url.endsWith("/v1/connections/hgi/runs")) {
+        return jsonResponse([
+          {
+            id: "run_1",
+            connection_id: "hgi",
+            connector_key: "lighthouse",
+            status: "running",
+            created_at: "2026-10-13T00:00:00Z",
+          },
+        ]);
+      }
+      assert.equal(url, "https://runner.example/v1/runs/run_1");
+      return jsonResponse({
+        id: "run_1",
+        connection_id: "hgi",
+        connector_key: "lighthouse",
+        status: "succeeded",
+        created_at: "2026-10-13T00:00:00Z",
+        finished_at: "2026-10-13T00:05:00Z",
+      });
+    });
+    const started = await runner().startRun("hgi");
+    const listed = await runner().listConnectionRuns("hgi");
+    const loaded = await runner().getRun("run_1");
+    assert.equal(started.status, "queued");
+    assert.equal(listed[0]?.status, "running");
+    assert.equal(loaded.status, "succeeded");
+    assert.equal(calls.length, 3);
+  });
+
   it("saves connector settings", async () => {
     install((url, init) => {
       assert.equal(url, "https://runner.example/v1/connections/hgi/credentials");

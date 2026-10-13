@@ -20,6 +20,18 @@ export type ConnectorType = {
   key: string;
   name: string;
   settings: SettingField[];
+  configSchema: Record<string, unknown>;
+};
+
+export type Run = {
+  id: string;
+  connectionId: string;
+  connectorType: string;
+  status: string;
+  error: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
 };
 
 export type SettingField = {

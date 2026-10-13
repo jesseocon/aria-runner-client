@@ -6,6 +6,7 @@ import type {
   Login,
   LoginInput,
   LoginPatch,
+  Run,
   Scope,
   Settings,
 } from "./types.ts";
@@ -18,6 +19,7 @@ export type {
   Login,
   LoginInput,
   LoginPatch,
+  Run,
   Scope,
   SettingField,
   Settings,
@@ -71,7 +73,19 @@ type RawSettings = {
 type RawType = {
   key: string;
   display_name: string;
+  config_schema?: Record<string, unknown>;
   auth?: { fields?: { key: string; title: string; secret: boolean }[] } | null;
+};
+
+type RawRun = {
+  id: string;
+  connection_id: string;
+  connector_key: string;
+  status: string;
+  error?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
 };
 
 function text(value: unknown): string | null {
@@ -166,6 +180,19 @@ export function createRunner(options: RunnerOptions) {
     return { values: row.values ?? {}, savedSecrets: row.saved_secrets ?? [] };
   }
 
+  function toRun(row: RawRun): Run {
+    return {
+      id: row.id,
+      connectionId: row.connection_id,
+      connectorType: row.connector_key,
+      status: row.status,
+      error: row.error ?? null,
+      createdAt: row.created_at,
+      startedAt: row.started_at ?? null,
+      finishedAt: row.finished_at ?? null,
+    };
+  }
+
   async function getRaw(id: string): Promise<RawConnection> {
     return request<RawConnection>(`/v1/connections/${id}`);
   }
@@ -196,7 +223,26 @@ export function createRunner(options: RunnerOptions) {
         key: row.key,
         name: row.display_name,
         settings: row.auth?.fields ?? [],
+        configSchema: row.config_schema ?? {},
       }));
+    },
+
+    async startRun(id: string, params: Record<string, unknown> = {}): Promise<Run> {
+      return toRun(
+        await request<RawRun>(`/v1/connections/${id}/runs`, {
+          method: "POST",
+          body: JSON.stringify({ params }),
+        }),
+      );
+    },
+
+    async listConnectionRuns(id: string): Promise<Run[]> {
+      const rows = await request<RawRun[]>(`/v1/connections/${id}/runs`);
+      return rows.map(toRun);
+    },
+
+    async getRun(id: string): Promise<Run> {
+      return toRun(await request<RawRun>(`/v1/runs/${id}`));
     },
 
     async listConnectors(scope: Scope = {}): Promise<Connector[]> {

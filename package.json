@@ -16,9 +16,11 @@
   "scripts": {
     "build": "tsc",
     "prepare": "tsc",
-    "test": "node --experimental-strip-types --test test/*.ts"
+    "test": "node --experimental-strip-types --test test/*.ts",
+    "gen": "scripts/gen-types.sh"
   },
   "devDependencies": {
+    "openapi-typescript": "7.4.4",
     "typescript": "^5"
   }
 }

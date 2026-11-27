@@ -1,3 +1,4 @@
+import type { components } from "./api.ts";
 import type {
   Connector,
   ConnectorInput,
@@ -43,50 +44,20 @@ export type RunnerOptions = {
   fetch?: typeof fetch;
 };
 
-type RawConnection = {
-  id: string;
-  organization_id?: string;
-  property_id?: string | null;
-  credential_id?: string | null;
-  connector_key: string;
-  name: string;
-  config: Record<string, unknown>;
-  enabled: boolean;
-  auth_status: string;
-};
+// The runner's own shapes, generated from its OpenAPI document (src/api.ts, npm run gen).
+type Schemas = components["schemas"];
+type RawConnection = Schemas["ConnectionOut"];
+type RawLogin = Schemas["CredentialOut"];
+type RawSettings = Schemas["CredentialsOut"];
+type RawType = Schemas["ConnectorOut"];
+type RawRun = Schemas["RunOut"];
 
-type RawLogin = {
-  id: string;
-  organization_id: string | null;
-  property_id: string | null;
-  name: string;
-  kind: "password" | "browser_session";
-  auth_status: string;
-  connection_ids?: string[];
-};
-
-type RawSettings = {
-  values: Record<string, string>;
-  saved_secrets?: string[];
-};
-
-type RawType = {
-  key: string;
-  display_name: string;
-  config_schema?: Record<string, unknown>;
-  auth?: { fields?: { key: string; title: string; secret: boolean }[] } | null;
-};
-
-type RawRun = {
-  id: string;
-  connection_id: string;
-  connector_key: string;
-  status: string;
-  error?: string | null;
-  created_at: string;
-  started_at?: string | null;
-  finished_at?: string | null;
-};
+/** A connector's tables, columns and links (GET /v1/connectors/{key}/catalog). */
+export type ConnectorCatalog = Schemas["ConnectorCatalog"];
+export type CatalogTable = Schemas["CatalogTable"];
+export type CatalogColumn = Schemas["CatalogColumn"];
+export type CatalogRelationship = Schemas["CatalogRelationship"];
+export type { components as RunnerSchemas } from "./api.ts";
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -170,7 +141,7 @@ export function createRunner(options: RunnerOptions) {
       name: row.name,
       organizationId: row.organization_id ?? "",
       propertyId: row.property_id,
-      kind: row.kind,
+      kind: row.kind === "browser_session" ? "browser_session" : "password",
       authStatus: row.auth_status,
       connectorIds: row.connection_ids ?? [],
     };
@@ -217,6 +188,13 @@ export function createRunner(options: RunnerOptions) {
   }
 
   return {
+    /** The tables a connector's syncs write, their columns and links; version: one registered
+     * version (default: the connector's current one). */
+    async connectorCatalog(key: string, version?: string): Promise<ConnectorCatalog> {
+      const query = version ? `?version=${encodeURIComponent(version)}` : "";
+      return request<ConnectorCatalog>(`/v1/connectors/${encodeURIComponent(key)}/catalog${query}`);
+    },
+
     async connectorTypes(): Promise<ConnectorType[]> {
       const rows = await request<RawType[]>("/v1/connectors");
       return rows.map((row) => ({

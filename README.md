@@ -50,3 +50,15 @@ await runner.saveSettings(id, { username: "ada@example.com", password: "secret" 
 `getSettings` and `saveSettings` are the connector's username and password. A connector that already has a login updates that shared login. `getLoginSettings` and `saveLoginSettings` do the same on the login itself. Secret values already stored are not returned; send a blank secret to keep the saved one.
 
 A vendor property id, such as a CoStar id, stays in `config.property_id`. `propertyId` is only the Aria property.
+
+## Types from the runner
+
+`src/api.ts` is generated from the runner's OpenAPI document (`openapi/aria-runner.json`), so the
+runner's request and response shapes are never written by hand. After an aria-runner API change:
+
+```sh
+ARIA_RUNNER_DIR=../aria-runner npm run gen
+```
+
+`connectorCatalog(key, version?)` returns a connector's tables, columns and links
+(`ConnectorCatalog`), for ERDs and docs.

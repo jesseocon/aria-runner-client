@@ -252,4 +252,25 @@ describe("createRunner", () => {
     });
     assert.deepEqual(settings.savedSecrets, ["password"]);
   });
+
+  it("reads a connector's catalog, one version when asked", async () => {
+    const urls: string[] = [];
+    install((url) => {
+      urls.push(url);
+      return jsonResponse({
+        format: "1",
+        connector: "googleads",
+        version: "0.1.12",
+        tables: [{ stream: "stream_campaign", table: "stg__campaign", columns: [{ name: "campaign__id", type: "STRING" }] }],
+        relationships: [],
+      });
+    });
+    const catalog = await runner().connectorCatalog("googleads");
+    await runner().connectorCatalog("googleads", "0.1.11");
+    assert.equal(catalog.tables?.[0]?.table, "stg__campaign");
+    assert.deepEqual(urls, [
+      "https://runner.example/v1/connectors/googleads/catalog",
+      "https://runner.example/v1/connectors/googleads/catalog?version=0.1.11",
+    ]);
+  });
 });
